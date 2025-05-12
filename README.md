@@ -37,7 +37,7 @@ If you don't have Python 3 installed, download and install it from the official 
 Run the Python script directly from the terminal:
 
 ```bash
-python3 ddos_attack.py
+sudo python3 ddos_attack.py
 ```
 ### Step 5: Provide Input
 The script will prompt you to enter the target IP and port to attack. Provide the necessary details when prompted.
