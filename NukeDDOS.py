@@ -16,7 +16,7 @@ PACKET_TYPES = {
 
 # Configuration interface
 os.system("clear")
-os.system("figlet DDos Attack")
+os.system("figlet -f slant NukeDDOS")
 print("Author   : Laila19")
 print("github   : https://github.com/lailacypher")
 print()
