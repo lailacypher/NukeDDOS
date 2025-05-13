@@ -17,8 +17,8 @@ PACKET_TYPES = {
 # Configuration interface
 os.system("clear")
 os.system("figlet DDos Attack")
-print("Author   : HA-MRX (Optimized)")
-print("github   : https://github.com/Ha3MrX")
+print("Author   : Laila19")
+print("github   : https://github.com/lailacypher")
 print()
 ip = input("Target IP : ").strip()
 port = int(input("Port      : ").strip())
